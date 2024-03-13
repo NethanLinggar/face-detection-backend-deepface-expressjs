@@ -1,0 +1,1 @@
+A REST API server made using Express.js with a Python script to handle DeepFace's capabilities.
