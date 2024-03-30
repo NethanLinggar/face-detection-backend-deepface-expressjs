@@ -7,22 +7,22 @@ const getAllUsers = () => {
 }
 
 const createNewUser = (body) => {
-    const SQLQuery = `  INSERT INTO users (name, email, address) 
-                        VALUES ('${body.name}', '${body.email}', '${body.address}')`;
+    const SQLQuery = `  INSERT INTO users (nrp, name) 
+                        VALUES ('${body.nrp}', '${body.name}')`;
 
     return dbPool.execute(SQLQuery);
 }
 
 const updateUser = (body, idUser) => {
     const SQLQuery = `  UPDATE users 
-                        SET name='${body.name}', email='${body.email}', address='${body.address}' 
-                        WHERE id=${idUser}`;
+                        SET name='${body.name}'
+                        WHERE nrp='${idUser}'`;
 
     return dbPool.execute(SQLQuery);
 }
 
 const deleteUser = (idUser) => {
-    const SQLQuery = `DELETE FROM users WHERE id=${idUser}`;
+    const SQLQuery = `DELETE FROM users WHERE nrp=${idUser}`;
 
     return dbPool.execute(SQLQuery);
 }

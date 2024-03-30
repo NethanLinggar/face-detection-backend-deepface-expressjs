@@ -1,3 +1,5 @@
+require('dotenv').config()
+const PORT = process.env.PORT || 3000
 const express = require('express')
 const app = express()
 
@@ -11,27 +13,6 @@ app.use(express.json())
 app.use('/users', usersRoutes)
 app.use('/python', pythonRoutes)
 
-// app.use('/', (req, res) => {
-//   dbPool.execute('SELECT * FROM users', (err, rows) => {
-//     if (err) {
-//       res.json({
-//         message: 'connection failed'
-//       })
-//     }
-
-//     res.json({
-//       message: 'connection success',
-//       data: rows
-//     })
-//   })
-// })
-// app.get('/', (req, res) => {
-//   res.send("Hello GET from Node API Server")
-// })
-// app.post('/', (req, res) => {
-//   res.send("Hello POST from Node API Server")
-// })
-
-app.listen(3000, () => {
-  console.log('Server is running on http://localhost:3000')
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`)
 })

@@ -1,43 +1,70 @@
-const createNewUser = (req, res) => {
-  console.log(req.body)
-  res.json({
-    message: 'CREATE new user success'
-  })
-}
+const UsersModel = require('../models/users')
 
-const getAllUsers = (req, res) => {
-  const data = {
-    name: "Farrel Anjay",
-    email: "farrelanjay@gmail.com",
-    address: "jl. anjay"
+const createNewUser = async (req, res) => {
+  const {body} = req
+  try {
+    await UsersModel.createNewUser(body)
+    res.json({
+      message: 'CREATE new user success',
+      data: body
+    })
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server Error',
+      serverMessage: error
+    })
   }
-  res.json({
-    message: 'GET all users success',
-    data: data
-  })
 }
 
-const updateUser = (req, res) => {
-  const { id } = req.params
-  console.log('id: ', id)
-  res.json({
-    message: 'UPDATE user success',
-    data: req.body
-  })
+const getAllUsers = async (req, res) => {
+  try {
+    const [data] = await UsersModel.getAllUsers()
+    res.json({
+      message: 'GET all users success',
+      data: data
+    })
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server Error',
+      serverMessage: error
+    })
+  }
 }
 
-const deleteUser = (req, res) => {
+const updateUser = async (req, res) => {
   const { id } = req.params
-  console.log('id: ', id)
-  res.json({
-    message: 'DELETE user success',
-    data: {
-      id: id,
-      name: 'Farrel Anjay',
-      email: 'farrelanjay@gmail.com',
-      address: "jl. anjay"
-    }
-  })
+  const { body } = req
+  try {
+    await UsersModel.updateUser(body, id)
+    res.json({
+      message: 'UPDATE user success',
+      data: {
+        nrp: id,
+        ...body
+      }
+    })
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server Error',
+      serverMessage: error
+    })
+  }
+}
+
+const deleteUser = async (req, res) => {
+  const { id } = req.params
+  try {
+    await UsersModel.deleteUser(id)
+    res.json({
+      message: 'DELETE user success',
+      data: null
+    })
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server Error',
+      serverMessage: error
+    })
+  }
 }
 
 module.exports = {
