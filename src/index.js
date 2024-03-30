@@ -1,8 +1,17 @@
 const express = require('express')
 const app = express()
 
-const facesRoutes = require('./routes/faces.js')
+const middlewareLogRequest = require('./middleware/logs')
+const usersRoutes = require('./routes/users')
+const facesRoutes = require('./routes/faces')
+const pythonRoutes = require('./routes/python_test')
+
+app.use(middlewareLogRequest)
+app.use(express.json())
+
+app.use('/users', usersRoutes)
 app.use('/faces', facesRoutes)
+app.use('/python', pythonRoutes)
 
 app.get('/', (req, res) => {
   res.send("Hello GET from Node API Server")
