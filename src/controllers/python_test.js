@@ -19,7 +19,6 @@ const pythonTest = (req, res) => {
         let output = data.toString().trim();
         const result = JSON.parse(output);
         python_result = result;
-        console.log(python_result);
     });
     
     // Menangani error yang mungkin terjadi saat menjalankan skrip Python
@@ -30,11 +29,13 @@ const pythonTest = (req, res) => {
     // Menangani penyelesaian skrip Python
     pythonProcess.on('close', (code) => {
         if (code === 0) {
-        console.log('Skrip Python selesai.');
-        res.send(python_result);
+            res.json({
+                message: 'Python script ran successfully.',
+                data: python_result
+            })
         } else {
-        console.error(`Skrip Python keluar dengan kode error ${code}`);
-        res.send('Error');
+            console.error(`Python script exited with error code ${code}`);
+            res.send('Error');
         }
     });
 }

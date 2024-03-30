@@ -1,10 +1,9 @@
 import json
 import sys
 
-resp = {
-  "Response": 200,
-  "Message": "Python script is sucessful."
-}
-print(json.dumps(resp))
+data = sys.argv[1]
+data = json.loads(data)
+
+print(json.dumps(data))
 
 sys.stdout.flush()
