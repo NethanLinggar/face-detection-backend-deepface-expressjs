@@ -1,19 +1,39 @@
 const UsersModel = require('../models/users')
+const { spawn } = require('child_process');
 
 const createNewUser = async (req, res) => {
-  const {body} = req
-  try {
-    await UsersModel.createNewUser(body)
-    res.json({
-      message: 'CREATE new user success',
-      data: body
-    })
-  } catch (error) {
-    res.status(500).json({
-      message: 'Server Error',
-      serverMessage: error
-    })
-  }
+  const pythonScriptPath = 'src/utils/deepface_insert.py';
+
+  const input = req.body;
+  let python_result;
+
+  const pythonProcess = spawn('python', [pythonScriptPath]);
+
+  pythonProcess.stdin.write(JSON.stringify(input))
+  pythonProcess.stdin.end()
+
+  pythonProcess.stdout.on('data', (data) => {
+      let output = data.toString().trim();
+      const result = JSON.parse(output);
+      python_result = result;
+  });
+  
+  pythonProcess.stderr.on('data', (data) => {
+      console.error(`Error: ${data.toString()}`);
+  });
+
+  pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        UsersModel.createNewUser(python_result)  
+        res.json({
+              message: 'Python script ran successfully.',
+              data: python_result
+          })
+      } else {
+          console.error(`Python script exited with error code ${code}`);
+          res.send('Error');
+      }
+  });
 }
 
 const getAllUsers = async (req, res) => {

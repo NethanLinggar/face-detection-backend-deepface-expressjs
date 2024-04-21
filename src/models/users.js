@@ -7,8 +7,8 @@ const getAllUsers = () => {
 }
 
 const createNewUser = (body) => {
-    const SQLQuery = `  INSERT INTO users (nrp, name) 
-                        VALUES ('${body.nrp}', '${body.name}')`;
+    const SQLQuery = `  INSERT INTO users (nrp, name, embedding) 
+                        VALUES ('${body.nrp}', '${body.name}', '${body.embedding}')`;
 
     return dbPool.execute(SQLQuery);
 }
