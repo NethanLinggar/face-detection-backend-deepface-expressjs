@@ -32,12 +32,12 @@ const getUser = async (req, res) => {
   }
 }
 
-const getUserEmbedding = async (req, res) => {
+const getUserImage = async (req, res) => {
   const { id } = req.params
   try {
-    const [data] = await UsersModel.getUserEmbedding(id);
+    const [data] = await UsersModel.getUserImage(id);
     res.json({
-      message: 'GET user embedding success',
+      message: 'GET user Base64 success',
       data: data
     })
   } catch (error) {
@@ -48,88 +48,20 @@ const getUserEmbedding = async (req, res) => {
   }
 }
 
-const verifyUser = async (req, res) => {
-  const pythonScriptPath = 'src/utils/deepface_verify.py';
-  const { id } = req.params
-
-  const [embedding] = await UsersModel.getUserEmbedding(id);
-  const input = req.body;
-  let python_result;
-
-  const pythonProcess = spawn('python', [pythonScriptPath]);
-
-  // Sending embedding to Python process
-  pythonProcess.stdin.write(JSON.stringify(embedding) + '\n');
-
-  // Sending input to Python process
-  pythonProcess.stdin.write(JSON.stringify(input) + '\n');
-
-  // End the input stream to signal Python that no more data will be sent
-  pythonProcess.stdin.end();
-
-  pythonProcess.stdout.on('data', (data) => {
-    let output = data.toString().trim();
-    const result = JSON.parse(output);
-    python_result = result;
-  });
-  
-  pythonProcess.stderr.on('data', (data) => {
-    console.error(`Error: ${data.toString()}`);
-  });
-
-  pythonProcess.on('close', (code) => {
-    if (code === 0) {
-      res.json({
-        message: 'VERIFY user success',
-        data: python_result
-      })
-    } else {
-      console.error(`Python script exited with error code ${code}`);
-      res.status(500).json({
-        message: 'Server Error',
-        serverMessage: `Python script exited with error code ${code}`
-      })
-    }
-  });
-}
-
 const createNewUser = async (req, res) => {
-  const pythonScriptPath = 'src/utils/deepface_insert.py';
-
-  const input = req.body;
-  let python_result;
-
-  const pythonProcess = spawn('python', [pythonScriptPath]);
-
-  pythonProcess.stdin.write(JSON.stringify(input))
-  pythonProcess.stdin.end()
-
-  pythonProcess.stdout.on('data', (data) => {
-    let output = data.toString().trim();
-    const result = JSON.parse(output);
-    python_result = result;
-  });
-  
-  pythonProcess.stderr.on('data', (data) => {
-    console.error(`Error: ${data.toString()}`);
-  });
-
-  pythonProcess.on('close', (code) => {
-    if (code === 0) {
-      // UsersModel.createNewUser(python_result)  
-      res.json({
-        message: 'CREATE new user success',
-        // data: python_result
-        data: UsersModel.createNewUser(python_result)
-      })
-    } else {
-      console.error(`Python script exited with error code ${code}`);
-      res.status(500).json({
-        message: 'Server Error',
-        serverMessage: `Python script exited with error code ${code}`
-      })
-    }
-  });
+  const { body } = req
+  try {
+    await UsersModel.createNewUser(body)
+    res.json({
+      message: 'CREATE new user success',
+      data: body
+    })
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server Error',
+      serverMessage: error
+    })
+  }
 }
 
 const updateUser = async (req, res) => {
@@ -171,8 +103,7 @@ const deleteUser = async (req, res) => {
 module.exports = {
   getAllUsers,
   getUser,
-  getUserEmbedding,
-  verifyUser,
+  getUserImage,
   createNewUser,
   updateUser,
   deleteUser

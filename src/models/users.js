@@ -12,18 +12,17 @@ const getUser = (idUser) => {
     return dbPool.execute(SQLQuery);
 }
 
-const getUserEmbedding = (idUser) => {
-    const SQLQuery = `SELECT embedding FROM users WHERE nrp=${idUser}`;
+const getUserImage = (idUser) => {
+    const SQLQuery = `SELECT image FROM users WHERE nrp=${idUser}`;
 
     return dbPool.execute(SQLQuery);
 }
 
 const createNewUser = (body) => {
-    const SQLQuery = `INSERT INTO users (nrp, name, embedding) VALUES (?, ?, ?)`;
-    const values = [body.nrp, body.name, body.embedding];
+    const SQLQuery = `  INSERT INTO users (nrp, name) 
+                        VALUES ('${body.nrp}', '${body.name}')`;
 
-    // return dbPool.execute(SQLQuery, values);
-    return body.embedding
+    return dbPool.execute(SQLQuery);
 }
 
 const updateUser = (body, idUser) => {
@@ -43,7 +42,7 @@ const deleteUser = (idUser) => {
 module.exports = {
     getAllUsers,
     getUser,
-    getUserEmbedding,
+    getUserImage,
     createNewUser,
     updateUser,
     deleteUser,
