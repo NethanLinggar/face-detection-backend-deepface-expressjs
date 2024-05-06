@@ -50,6 +50,64 @@ const verifyUser = async (req, res) => {
   });
 }
 
+const findUser = async (req, res) => {
+  const pythonScriptPath = 'src/utils/deepface_find.py';
+
+  const input = req.body;
+
+  const pythonProcess = spawn('python', [pythonScriptPath]);
+
+  pythonProcess.stdin.write(JSON.stringify(input) + '\n');
+
+  pythonProcess.stdin.end();
+
+  pythonProcess.stdout.on('data', async (data) => {
+    let output = data.toString().trim();
+    const result = JSON.parse(output);
+    id = result;
+    try {
+      const [userData] = await UsersModel.getUser(id);
+      let imageBase64;
+      const imageExtensions = ['jpg', 'jpeg', 'png'];
+      for (const ext of imageExtensions) {
+        const imagePath = path.join('database', `${id}.${ext}`);
+        if (fs.existsSync(imagePath)) {
+          imageBase64 = fs.readFileSync(imagePath, { encoding: 'base64' });
+          break;
+        }
+      }
+      const responseData = {
+        ...userData[0],
+        image: imageBase64
+      };
+      res.json({
+        message: 'FIND user success',
+        data: responseData
+      });
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      res.status(500).json({
+        message: 'Server Error',
+        serverMessage: error.message
+      });
+    }
+  });
+  
+  pythonProcess.stderr.on('data', (data) => {
+    console.error(`Error: ${data.toString()}`);
+  });
+
+  pythonProcess.on('close', (code) => {
+    if (code !== 0) {
+      console.error(`Python script exited with error code ${code}`);
+      res.status(500).json({
+        message: 'Server Error',
+        serverMessage: `Python script exited with error code ${code}`
+      });
+    }
+  });
+};
+
 const getAllUsers = async (req, res) => {
   try {
     const [data] = await UsersModel.getAllUsers()
@@ -70,10 +128,13 @@ const getUser = async (req, res) => {
   try {
     const [userData] = await UsersModel.getUser(id)
     let imageBase64;
-    const imagePath = path.join('database', `${id}.jpeg`);
-    if (fs.existsSync(imagePath)) {
-      imageBase64 = fs.readFileSync(imagePath, { encoding: 'base64' });
-      imageBase64 = 'data:image/jpeg;base64,' + imageBase64.toString('base64');
+    const imageExtensions = ['jpg', 'jpeg', 'png'];
+    for (const ext of imageExtensions) {
+      const imagePath = path.join('database', `${id}.${ext}`);
+      if (fs.existsSync(imagePath)) {
+        imageBase64 = fs.readFileSync(imagePath, { encoding: 'base64' });
+        break;
+      }
     }
     const responseData = {
       ...userData[0],
@@ -101,7 +162,7 @@ const createNewUser = async (req, res) => {
     const filename = body.nrp + '.' + detectedType;
     const filePath = path.join('database', filename);
     fs.writeFileSync(filePath, imageBuffer);
-    // await UsersModel.createNewUser(body)
+    await UsersModel.createNewUser(body)
     res.json({
       message: 'CREATE new user success',
       data: image
@@ -152,6 +213,7 @@ const deleteUser = async (req, res) => {
 
 module.exports = {
   verifyUser,
+  findUser,
   getAllUsers,
   getUser,
   createNewUser,
