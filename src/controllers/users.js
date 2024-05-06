@@ -1,5 +1,7 @@
 const UsersModel = require('../models/users')
 const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 const getAllUsers = async (req, res) => {
   try {
@@ -19,26 +21,23 @@ const getAllUsers = async (req, res) => {
 const getUser = async (req, res) => {
   const { id } = req.params
   try {
-    const [data] = await UsersModel.getUser(id)
+    let [userData] = await UsersModel.getUser(id)
+    let imageBase64;
+    const imageExtensions = ['jpg', 'jpeg', 'png'];
+    for (const ext of imageExtensions) {
+      const imagePath = path.join('database', `${id}.${ext}`);
+      if (fs.existsSync(imagePath)) {
+        imageBase64 = fs.readFileSync(imagePath, { encoding: 'base64' });
+        break;
+      }
+    }
+    const responseData = {
+      ...userData[0],
+      image: imageBase64
+    }
     res.json({
       message: 'GET user success',
-      data: data
-    })
-  } catch (error) {
-    res.status(500).json({
-      message: 'Server Error',
-      serverMessage: error
-    })
-  }
-}
-
-const getUserImage = async (req, res) => {
-  const { id } = req.params
-  try {
-    const [data] = await UsersModel.getUserImage(id);
-    res.json({
-      message: 'GET user Base64 success',
-      data: data
+      data: responseData
     })
   } catch (error) {
     res.status(500).json({
@@ -50,11 +49,18 @@ const getUserImage = async (req, res) => {
 
 const createNewUser = async (req, res) => {
   const { body } = req
+  const { image } = body;
   try {
+    // const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+    const imageBuffer = Buffer.from(image, 'base64');
+    // const detectedType = image.split(';')[0].split('/')[1];
+    const filename = body.nrp + '.jpg';
+    const filePath = path.join('database', filename);
+    fs.writeFileSync(filePath, imageBuffer);
     await UsersModel.createNewUser(body)
     res.json({
       message: 'CREATE new user success',
-      data: body
+      data: image
     })
   } catch (error) {
     res.status(500).json({
@@ -103,7 +109,6 @@ const deleteUser = async (req, res) => {
 module.exports = {
   getAllUsers,
   getUser,
-  getUserImage,
   createNewUser,
   updateUser,
   deleteUser

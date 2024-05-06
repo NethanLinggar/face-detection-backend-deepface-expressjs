@@ -57,3 +57,5 @@ yarn.lock
 
 # Production build
 public
+
+database
