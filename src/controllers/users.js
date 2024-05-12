@@ -198,6 +198,9 @@ const updateUser = async (req, res) => {
 const deleteUser = async (req, res) => {
   const { id } = req.params
   try {
+    const filename = id + '.jpeg';
+    const filePath = path.join('database', filename);
+    fs.unlinkSync(filePath)
     await UsersModel.deleteUser(id)
     res.json({
       message: 'DELETE user success',
