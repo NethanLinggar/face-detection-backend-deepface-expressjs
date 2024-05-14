@@ -1,8 +1,119 @@
+require('dotenv').config()
 const db = require("../models");
 const Users = db.users;
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+
+exports.verifyUser = async (req, res) => {
+  const pythonScriptPath = 'src/utils/deepface_verify.py';
+  const { id } = req.params;
+
+  const input = req.body;
+  let python_result;
+
+  const pythonProcess = spawn(process.env.PYTHON_PATH ? process.env.PYTHON_PATH : 'python', [pythonScriptPath]);
+
+  // Sending image to Python process
+  const imagePath = path.join('database', id + '.jpeg');
+  const imageBuffer = fs.readFileSync(imagePath);
+  const image = 'data:image/jpeg;base64,' + imageBuffer.toString('base64');
+  pythonProcess.stdin.write(JSON.stringify(image) + '\n');
+
+  // Sending input to Python process
+  pythonProcess.stdin.write(JSON.stringify(input) + '\n');
+
+  // End the input stream to signal Python that no more data will be sent
+  pythonProcess.stdin.end();
+
+  pythonProcess.stdout.on('data', (data) => {
+    let output = data.toString().trim();
+    const result = JSON.parse(output);
+    python_result = result;
+  });
+  
+  pythonProcess.stderr.on('data', (data) => {
+    console.error(`Error: ${data.toString()}`);
+  });
+
+  pythonProcess.on('close', (code) => {
+    if (code === 0) {
+      res.json({
+        message: 'User verified successfully.',
+        data: python_result
+      })
+    } else {
+      console.error(`Python script exited with error code ${code}`);
+      res.status(500).json({
+        message: `Python script exited with error code ${code}`,
+        data: null
+      })
+    }
+  });
+}
+
+exports.findUser = async (req, res) => {
+  const pythonScriptPath = 'src/utils/deepface_find.py';
+
+  const input = req.body;
+
+  const pythonProcess = spawn(process.env.PYTHON_PATH ? process.env.PYTHON_PATH : 'python', [pythonScriptPath]);
+
+  pythonProcess.stdin.write(JSON.stringify(input) + '\n');
+
+  pythonProcess.stdin.end();
+
+  pythonProcess.stdout.on('data', async (data) => {
+    let output = data.toString().trim();
+    const result = JSON.parse(output);
+    id = result;
+    try {
+      const user = await Users.findByPk(id)
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found.",
+          data: null,
+        })
+      }
+
+      let imageBase64;
+      const imagePath = path.join('database', `${id}.jpeg`);
+      if (fs.existsSync(imagePath)) {
+        imageBase64 = fs.readFileSync(imagePath, { encoding: 'base64' });
+      };
+
+      const responseData = {
+        ...user.dataValues,
+        image: imageBase64,
+      }
+
+      res.json({
+        message: 'User found successfully.',
+        data: responseData
+      });
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      res.status(500).json({
+        message: error.message || "Some error occurred while finding user.",
+        data: null
+      });
+    }
+  });
+  
+  pythonProcess.stderr.on('data', (data) => {
+    console.error(`Error: ${data.toString()}`);
+  });
+
+  pythonProcess.on('close', (code) => {
+    if (code !== 0) {
+      console.error(`Python script exited with error code ${code}`);
+      res.status(500).json({
+        message: `Python script exited with error code ${code}`,
+        data: null
+      })
+    }
+  });
+};
 
 // CREATE: untuk menambahkan data ke dalam tabel users
 exports.createNewUser = async (req, res) => {
