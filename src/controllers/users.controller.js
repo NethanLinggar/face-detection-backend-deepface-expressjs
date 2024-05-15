@@ -68,6 +68,13 @@ exports.findUser = async (req, res) => {
     const result = JSON.parse(output);
     id = result;
     try {
+      if (id == "Face not found.") {
+        return res.status(404).json({
+          message: "Face not found.",
+          data: null,
+        })
+      }
+
       const user = await Users.findByPk(id)
       if (!user) {
         return res.status(404).json({
@@ -214,12 +221,28 @@ exports.getUser = async (req, res) => {
 
 // UPDATE: Merubah data sesuai dengan id yang dikirimkan sebagai params 
 exports.updateUser = async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params
+  const { image } = req.body
   try {
+    if (image) {
+      try {
+        const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+        const detectedType = image.split(';')[0].split('/')[1];
+        const filename = id + '.' + detectedType;
+        const filePath = path.join('database', filename);
+        fs.writeFileSync(filePath, imageBuffer);
+      } catch (imageError) {
+        return res.status(500).json({
+          message: "Image not saved.",
+          data: null,
+        })
+      }
+    }
+
     const num = await Users.update(req.body, {
       where: { nrp: id },
     })
-
     if (num == 1) {
       res.json({
         message: `User with nrp=${id} updated successfully.`,
