@@ -38,10 +38,17 @@ exports.verifyUser = async (req, res) => {
 
   pythonProcess.on('close', (code) => {
     if (code === 0) {
-      res.json({
-        message: 'User verified successfully.',
-        data: python_result
-      })
+      if (python_result.verified) {
+        res.json({
+          message: 'User verified.',
+          data: python_result
+        })
+      } else {
+        res.json({
+          message: 'User unverified.',
+          data: python_result
+        })
+      }
     } else {
       console.error(`Python script exited with error code ${code}`);
       res.status(500).json({
