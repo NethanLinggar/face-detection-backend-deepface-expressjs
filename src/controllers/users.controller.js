@@ -131,10 +131,29 @@ exports.findUser = async (req, res) => {
 
 // CREATE: untuk menambahkan data ke dalam tabel users
 exports.createNewUser = async (req, res) => {
+  const pythonScriptPath = 'src/utils/deepface_create.py';
+
   const { body } = req
   const { image } = body
-  try {
-    if (image) {
+
+  const pythonProcess = spawn(process.env.PYTHON_PATH ? process.env.PYTHON_PATH : 'python', [pythonScriptPath]);
+
+  pythonProcess.stdin.write(JSON.stringify(image) + '\n');
+
+  pythonProcess.stdin.end();
+
+  pythonProcess.stdout.on('data', async (data) => {
+    let output = data.toString().trim();
+    const result = JSON.parse(output);
+    id = result;
+    try {
+      if (id == "Face not detected.") {
+        return res.status(404).json({
+          message: "Face not detected.",
+          data: null,
+        })
+      }
+
       try {
         const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
         const imageBuffer = Buffer.from(base64Data, 'base64');
@@ -148,29 +167,39 @@ exports.createNewUser = async (req, res) => {
           data: null,
         })
       }
-    } else {
-      return res.status(400).json({
-        message: "Image not received.",
-        data: null,
+
+      const user = {
+        nrp: body.nrp,
+        name: body.name,
+      }
+
+      const data = await Users.create(user);
+      res.json({
+        message: `User with id=${data.nrp} created successfully.`,
+        data: data
+      });
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      res.status(500).json({
+        message: error.message || "Some error occurred while finding user.",
+        data: null
+      });
+    }
+  });
+  
+  pythonProcess.stderr.on('data', (data) => {
+    console.error(`Error: ${data.toString()}`);
+  });
+
+  pythonProcess.on('close', (code) => {
+    if (code !== 0) {
+      console.error(`Python script exited with error code ${code}`);
+      res.status(500).json({
+        message: `Python script exited with error code ${code}`,
+        data: null
       })
     }
-
-    const user = {
-      nrp: body.nrp,
-      name: body.name,
-    }
-
-    const data = await Users.create(user);
-    res.json({
-      message: `User with id=${data.nrp} created successfully.`,
-      data: data,
-    })
-  } catch (err) {
-    res.status(500).json({
-      message: err.message || "Some error occurred while creating the Users.",
-      data: null,
-    })
-  }
+  });
 };
 
 // READ: menampilkan atau mengambil semua data sesuai model dari database
