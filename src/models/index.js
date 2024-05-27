@@ -18,6 +18,15 @@ const db = {};
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
-// define semua models yang ada pada aplikasi
+// Import and define models
 db.users = require('./users.model')(sequelize, Sequelize);
+db.logs = require('./logs.model')(sequelize, Sequelize);
+
+// Execute association methods if defined
+Object.keys(db).forEach(modelName => {
+    if (db[modelName].associate) {
+        db[modelName].associate(db);
+    }
+});
+
 module.exports = db;

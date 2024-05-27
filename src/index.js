@@ -5,6 +5,7 @@ const app = express()
 
 const middlewareLogRequest = require('./middleware/logs')
 const usersRoutes = require('./routes/users.routes')
+const logsRoutes = require('./routes/logs.routes')
 const pythonRoutes = require('./routes/python_test')
 
 app.use(middlewareLogRequest)
@@ -15,6 +16,7 @@ const db = require('./models');
 db.sequelize.sync();
 
 app.use('/users', usersRoutes)
+app.use('/logs', logsRoutes)
 app.use('/python', pythonRoutes)
 
 app.listen(PORT, () => {

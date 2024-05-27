@@ -10,5 +10,10 @@ module.exports = (sequelize, Sequelize) => {
             type: Sequelize.STRING,
         },
     });
+
+    User.associate = (models) => {
+        User.hasMany(models.logs, { foreignKey: 'userNrp' });
+    };
+
     return User;
 }
