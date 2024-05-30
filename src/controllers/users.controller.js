@@ -14,16 +14,13 @@ exports.verifyUser = async (req, res) => {
 
   const pythonProcess = spawn(process.env.PYTHON_PATH ? process.env.PYTHON_PATH : 'python', [pythonScriptPath]);
 
-  // Sending image to Python process
-  const imagePath = path.join('database', id + '.jpeg');
+  const imagePath = path.join(process.env.DATABASE_PATH, id + '.jpeg');
   const imageBuffer = fs.readFileSync(imagePath);
   const image = 'data:image/jpeg;base64,' + imageBuffer.toString('base64');
   pythonProcess.stdin.write(JSON.stringify(image) + '\n');
 
-  // Sending input to Python process
   pythonProcess.stdin.write(JSON.stringify(input) + '\n');
 
-  // End the input stream to signal Python that no more data will be sent
   pythonProcess.stdin.end();
 
   pythonProcess.stdout.on('data', (data) => {
@@ -91,7 +88,7 @@ exports.findUser = async (req, res) => {
       }
 
       let imageBase64;
-      const imagePath = path.join('database', `${id}.jpeg`);
+      const imagePath = path.join(process.env.DATABASE_PATH, id + '.jpeg');
       if (fs.existsSync(imagePath)) {
         imageBase64 = fs.readFileSync(imagePath, { encoding: 'base64' });
       };
@@ -157,9 +154,7 @@ exports.createNewUser = async (req, res) => {
       try {
         const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
         const imageBuffer = Buffer.from(base64Data, 'base64');
-        const detectedType = image.split(';')[0].split('/')[1];
-        const filename = body.nrp + '.' + detectedType;
-        const filePath = path.join('database', filename);
+        const filePath = path.join(process.env.DATABASE_PATH, body.nrp + '.jpeg');
         fs.writeFileSync(filePath, imageBuffer);
       } catch (imageError) {
         return res.status(500).json({
@@ -233,7 +228,7 @@ exports.getUser = async (req, res) => {
     }
 
     let imageBase64;
-    const imagePath = path.join('database', `${id}.jpeg`);
+    const imagePath = path.join(process.env.DATABASE_PATH, id + '.jpeg');
     if (fs.existsSync(imagePath)) {
       imageBase64 = fs.readFileSync(imagePath, { encoding: 'base64' });
     };
@@ -264,9 +259,7 @@ exports.updateUser = async (req, res) => {
       try {
         const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
         const imageBuffer = Buffer.from(base64Data, 'base64');
-        const detectedType = image.split(';')[0].split('/')[1];
-        const filename = id + '.' + detectedType;
-        const filePath = path.join('database', filename);
+        const filePath = path.join(process.env.DATABASE_PATH, id + '.jpeg');
         fs.writeFileSync(filePath, imageBuffer);
       } catch (imageError) {
         return res.status(500).json({
@@ -302,9 +295,7 @@ exports.updateUser = async (req, res) => {
 exports.deleteUser = async (req, res) => {
   const { id } = req.params;
   try {
-    // Delete the user file
-    const filename = `${id}.jpeg`;
-    const filePath = path.join('database', filename);
+    const filePath = path.join(process.env.DATABASE_PATH, id + '.jpeg');
     fs.unlinkSync(filePath);
 
     // Delete the user from the database
