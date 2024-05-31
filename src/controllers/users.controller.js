@@ -156,6 +156,15 @@ exports.createNewUser = async (req, res) => {
         const imageBuffer = Buffer.from(base64Data, 'base64');
         const filePath = path.join(process.env.DATABASE_PATH, body.nrp + '.jpeg');
         fs.writeFileSync(filePath, imageBuffer);
+
+        // Delete .pkl files
+        const files = fs.readdirSync(process.env.DATABASE_PATH);
+        const pklFiles = files.filter(file => path.extname(file) === '.pkl');
+        if (pklFiles) {
+          pklFiles.forEach(file => {
+            fs.unlinkSync(path.join(process.env.DATABASE_PATH, file));
+          });
+        }
       } catch (imageError) {
         return res.status(500).json({
           message: "Image not saved.",
