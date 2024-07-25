@@ -17,7 +17,7 @@ try:
   
   result = result[0]["identity"][0]
 
-  verification = DeepFace.verify(input_buffer, result)
+  verification = DeepFace.verify(input_buffer, result, model_name=model_name, detector_backend=detector_backend, distance_metric=distance_metric, silent=True)
 
   if verification["verified"] == True:
     result = result.split('\\')[-1].split('.')[0]

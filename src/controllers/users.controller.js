@@ -6,204 +6,198 @@ const fs = require('fs');
 const path = require('path');
 
 exports.verifyUser = async (req, res) => {
-  const pythonScriptPath = 'src/utils/deepface_verify.py';
   const { id } = req.params;
-
   const input = req.body;
-  let python_result;
 
-  const pythonProcess = spawn(process.env.PYTHON_PATH ? process.env.PYTHON_PATH : 'python', [pythonScriptPath]);
+  try {
+    const imagePath = path.join(process.env.DATABASE_PATH, `${id}.jpeg`);
+    const imageBuffer = fs.readFileSync(imagePath);
+    const image = 'data:image/jpeg;base64,' + imageBuffer.toString('base64');
 
-  const imagePath = path.join(process.env.DATABASE_PATH, id + '.jpeg');
-  const imageBuffer = fs.readFileSync(imagePath);
-  const image = 'data:image/jpeg;base64,' + imageBuffer.toString('base64');
-  pythonProcess.stdin.write(JSON.stringify(image) + '\n');
+    const pythonScriptPath = path.join(__dirname, '../utils/deepface_verify.py');
+    const pythonProcess = spawn(process.env.PYTHON_PATH || 'python', [pythonScriptPath]);
 
-  pythonProcess.stdin.write(JSON.stringify(input) + '\n');
+    let pythonResult = '';
 
-  pythonProcess.stdin.end();
+    pythonProcess.stdout.on('data', (data) => {
+      pythonResult += data.toString();
+    });
 
-  pythonProcess.stdout.on('data', (data) => {
-    let output = data.toString().trim();
-    const result = JSON.parse(output);
-    python_result = result;
-  });
-  
-  pythonProcess.stderr.on('data', (data) => {
-    console.error(`Error: ${data.toString()}`);
-  });
+    pythonProcess.stderr.on('data', (data) => {
+      console.error(`Error: ${data.toString()}`);
+    });
 
-  pythonProcess.on('close', (code) => {
-    if (code === 0) {
-      if (python_result.verified) {
-        res.json({
-          message: 'User verified.',
-          data: python_result
-        })
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        try {
+          const result = JSON.parse(pythonResult.trim());
+          if (result.verified) {
+            res.json({
+              message: 'User verified.',
+              data: result
+            });
+          } else {
+            res.json({
+              message: 'User unverified.',
+              data: result
+            });
+          }
+        } catch (err) {
+          console.error(`JSON parse error: ${err}`);
+          res.status(500).json({
+            message: 'Error parsing Python script output.',
+            data: null
+          });
+        }
       } else {
-        res.json({
-          message: 'User unverified.',
-          data: python_result
-        })
+        console.error(`Python script exited with error code ${code}`);
+        res.status(500).json({
+          message: `Python script exited with error code ${code}`,
+          data: null
+        });
       }
-    } else {
-      console.error(`Python script exited with error code ${code}`);
-      res.status(500).json({
-        message: `Python script exited with error code ${code}`,
-        data: null
-      })
-    }
-  });
-}
+    });
+
+    // Write input to the Python process
+    pythonProcess.stdin.write(JSON.stringify(image) + '\n');
+    pythonProcess.stdin.write(JSON.stringify(input) + '\n');
+    pythonProcess.stdin.end();
+
+  } catch (error) {
+    console.error(`Error: ${error}`);
+    res.status(500).json({
+      message: 'An error occurred during verification.',
+      data: null
+    });
+  }
+};
 
 exports.findUser = async (req, res) => {
-  const pythonScriptPath = 'src/utils/deepface_find.py';
-
   const input = req.body;
 
-  const pythonProcess = spawn(process.env.PYTHON_PATH ? process.env.PYTHON_PATH : 'python', [pythonScriptPath]);
+  try {
+    const pythonScriptPath = path.join(__dirname, '../utils/deepface_find.py');
+    const pythonProcess = spawn(process.env.PYTHON_PATH || 'python', [pythonScriptPath]);
+    
+    let pythonResult = '';
 
-  pythonProcess.stdin.write(JSON.stringify(input) + '\n');
+    pythonProcess.stdout.on('data', (data) => {
+      pythonResult += data.toString();
+    });
 
-  pythonProcess.stdin.end();
+    pythonProcess.stderr.on('data', (data) => {
+      console.error(`Error: ${data.toString()}`);
+    });
 
-  pythonProcess.stdout.on('data', async (data) => {
-    let output = data.toString().trim();
-    const result = JSON.parse(output);
-    id = result;
-    try {
-      if (id == "Face not found.") {
-        return res.status(404).json({
-          message: "Face not found.",
-          data: null,
-        })
+    pythonProcess.on('close', async (code) => {
+      if (code === 0) {
+        try {
+          const result = JSON.parse(pythonResult.trim());
+          const id = result;
+          console.log(result)
+
+          if (id === "Face not found.") {
+            return res.status(200).json({
+              message: "Face not found.",
+              data: result,
+            });
+          }
+
+          const user = await Users.findByPk(id);
+          if (!user) {
+            return res.status(200).json({
+              message: "User not found.",
+              data: null,
+            });
+          }
+
+          let imageBase64;
+          const imagePath = path.join(process.env.DATABASE_PATH, `${id}.jpeg`);
+          if (fs.existsSync(imagePath)) {
+            imageBase64 = fs.readFileSync(imagePath, { encoding: 'base64' });
+          }
+
+          const responseData = {
+            ...user.dataValues,
+            image: imageBase64,
+          };
+
+          res.json({
+            message: 'User found successfully.',
+            data: responseData
+          });
+        } catch (err) {
+          console.error("Error fetching user data:", err);
+          res.status(500).json({
+            message: err.message || "Some error occurred while finding user.",
+            data: null
+          });
+        }
+      } else {
+        console.error(`Python script exited with error code ${code}`);
+        res.status(500).json({
+          message: `Python script exited with error code ${code}`,
+          data: null
+        });
       }
+    });
 
-      const user = await Users.findByPk(id)
-      if (!user) {
-        return res.status(404).json({
-          message: "User not found.",
-          data: null,
-        })
-      }
-
-      let imageBase64;
-      const imagePath = path.join(process.env.DATABASE_PATH, id + '.jpeg');
-      if (fs.existsSync(imagePath)) {
-        imageBase64 = fs.readFileSync(imagePath, { encoding: 'base64' });
-      };
-
-      const responseData = {
-        ...user.dataValues,
-        image: imageBase64,
-      }
-
-      res.json({
-        message: 'User found successfully.',
-        data: responseData
-      });
-    } catch (error) {
-      console.error("Error fetching user data:", error);
-      res.status(500).json({
-        message: error.message || "Some error occurred while finding user.",
-        data: null
-      });
-    }
-  });
-  
-  pythonProcess.stderr.on('data', (data) => {
-    console.error(`Error: ${data.toString()}`);
-  });
-
-  pythonProcess.on('close', (code) => {
-    if (code !== 0) {
-      console.error(`Python script exited with error code ${code}`);
-      res.status(500).json({
-        message: `Python script exited with error code ${code}`,
-        data: null
-      })
-    }
-  });
+    pythonProcess.stdin.write(JSON.stringify(input) + '\n');
+    pythonProcess.stdin.end();
+    
+  } catch (error) {
+    console.error(`Error: ${error}`);
+    res.status(500).json({
+      message: 'An error occurred during verification.',
+      data: null
+    });
+  }
 };
 
 // CREATE: untuk menambahkan data ke dalam tabel users
 exports.createNewUser = async (req, res) => {
-  const pythonScriptPath = 'src/utils/deepface_create.py';
+  const { body } = req;
+  const { image, nrp, name } = body;
 
-  const { body } = req
-  const { image } = body
+  try {
+    const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+    const filePath = path.join(process.env.DATABASE_PATH, nrp + '.jpeg');
+    fs.writeFileSync(filePath, imageBuffer);
 
-  const pythonProcess = spawn(process.env.PYTHON_PATH ? process.env.PYTHON_PATH : 'python', [pythonScriptPath]);
-
-  pythonProcess.stdin.write(JSON.stringify(image) + '\n');
-
-  pythonProcess.stdin.end();
-
-  pythonProcess.stdout.on('data', async (data) => {
-    let output = data.toString().trim();
-    const result = JSON.parse(output);
-    id = result;
-    try {
-      if (id == "Face not detected.") {
-        return res.status(404).json({
-          message: "Face not detected.",
-          data: null,
-        })
-      }
-
-      try {
-        const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
-        const imageBuffer = Buffer.from(base64Data, 'base64');
-        const filePath = path.join(process.env.DATABASE_PATH, body.nrp + '.jpeg');
-        fs.writeFileSync(filePath, imageBuffer);
-
-        // Delete .pkl files
-        const files = fs.readdirSync(process.env.DATABASE_PATH);
-        const pklFiles = files.filter(file => path.extname(file) === '.pkl');
-        if (pklFiles) {
-          pklFiles.forEach(file => {
-            fs.unlinkSync(path.join(process.env.DATABASE_PATH, file));
-          });
-        }
-      } catch (imageError) {
-        return res.status(500).json({
-          message: "Image not saved.",
-          data: null,
-        })
-      }
-
-      const user = {
-        nrp: body.nrp,
-        name: body.name,
-      }
-
-      const data = await Users.create(user);
-      res.json({
-        message: `User with id=${data.nrp} created successfully.`,
-        data: data
-      });
-    } catch (error) {
-      console.error("Error fetching user data:", error);
-      res.status(500).json({
-        message: error.message || "Some error occurred while finding user.",
-        data: null
+    // Delete .pkl files
+    const files = fs.readdirSync(process.env.DATABASE_PATH);
+    const pklFiles = files.filter(file => path.extname(file) === '.pkl');
+    if (pklFiles) {
+      pklFiles.forEach(file => {
+        fs.unlinkSync(path.join(process.env.DATABASE_PATH, file));
       });
     }
-  });
-  
-  pythonProcess.stderr.on('data', (data) => {
-    console.error(`Error: ${data.toString()}`);
-  });
+  } catch (imageError) {
+    return res.status(500).json({
+      message: "Image not saved.",
+      data: null,
+    });
+  }
 
-  pythonProcess.on('close', (code) => {
-    if (code !== 0) {
-      console.error(`Python script exited with error code ${code}`);
-      res.status(500).json({
-        message: `Python script exited with error code ${code}`,
-        data: null
-      })
-    }
-  });
+  try {
+    const user = {
+      nrp: nrp,
+      name: name,
+    };
+
+    const data = await Users.create(user);
+    res.json({
+      message: `User with id=${data.nrp} created successfully.`,
+      data: data,
+    });
+  } catch (error) {
+    console.error("Error creating user:", error);
+    res.status(500).json({
+      message: error.message || "Some error occurred while creating the user.",
+      data: null,
+    });
+  }
 };
 
 // READ: menampilkan atau mengambil semua data sesuai model dari database
